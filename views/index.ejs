@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>excel、word处理工具</title>
+  <link rel="stylesheet" href="/stylesheets/bootstrap.min.css">
+  <link rel="stylesheet" href="/stylesheets/bootstrap-table.min.css">
+  <link rel="stylesheet" href="/javascripts/dist/themes/default/style.min.css"/>
+  <script src="/javascripts/jquery-3.3.1.min.js"></script>
+  <script src="/javascripts/jquery.cookie.js"></script>
+  <script src="/javascripts/xlsx.full.min.js"></script>
+  <script src="/javascripts/bootstrap.min.js"></script>
+  <script src="/javascripts/bootstrap-table.min.js"></script>
+  <script src="/javascripts/bootstrap-table-zh-CN.min.js"></script>
+  <script src="/javascripts/dist/jstree.min.js"></script>
+  <!-- 配置文件 -->
+  <script type="text/javascript" src="/javascripts/ueditor/ueditor.config.js"></script>
+  <!-- 编辑器源码文件 -->
+  <script type="text/javascript" src="/javascripts/ueditor/ueditor.all.min.js"></script>
+  <script src="/javascripts/ueditor/lang/zh-cn/zh-cn.js"></script>
+  <script>
+    var json1;//树形数据
+    var keys=[];//各层树代表属性
+    $(document).ready(function() {
+      treeReload();//初始化树形数据
+      //treeInit();//初始化树
+      $("#excel").off("click").click(function () {
+        var jsonData = [];
+        var i1 = 0;
+        var keys1 = ["大标题", "2级目录", "3级库名", "4级分类名", "5级表名"];
+        var obj = {
+          "id":"#",
+          "text":"资源目录",
+          "children":[],
+        };
+        var json = [];
+        for(var i in json1){
+          if(json1[i].parent=="#"){
+            var obj1={
+              "text":json1[i].text,
+              "children":[]
+            };
+            for(var k in json1){
+              if(json1[k].parent * 1==json1[i].id){
+                var obj2={
+                  "text":json1[k].text,
+                  "children":[]
+                };
+                for(var j in json1){
+                  if(json1[j].parent*1==json1[k].id){
+                    var obj3={
+                      "text":json1[j].text,
+                      "children":[]
+                    };
+                    for(var m in json1){
+                      if(json1[m].parent*1==json1[j].id){
+                        var obj4={
+                          "text":json1[m].text,
+                          "children":[]
+                        };
+                        for(var n in json1){
+                          if(json1[n].parent*1==json1[m].id){
+                            var obj5={
+                              "text":json1[n].text,
+                              "children":[]
+                            };
+                            obj4.children.push(obj5);
+                          }
+                        }
+                        obj3.children.push(obj4);
+                      }
+                    }
+                    obj2.children.push(obj3);
+                  }
+                }
+                obj1.children.push(obj2);
+              }
+            }
+            obj.children.push(obj1);
+          }
+        }
+        json.push(obj);
+        while (i1 < json[0].children.length) {
+          var i2 = 0;
+          while (i2 < json[0].children[i1].children.length) {
+            var i3 = 0;
+            while (i3 < json[0].children[i1].children[i2].children.length) {
+              var i4 = 0;
+              while (i4 < json[0].children[i1].children[i2].children[i3].children.length) {
+                var i5 = 0;
+                while (i5 < json[0].children[i1].children[i2].children[i3].children[i4].children.length) {
+                  var data = {};
+                  data[keys1[0]] = json[0].children[i1].text;
+                  data[keys1[1]] = json[0].children[i1].children[i2].text;
+                  data[keys1[2]] = json[0].children[i1].children[i2].children[i3].text;
+                  data[keys1[3]] = json[0].children[i1].children[i2].children[i3].children[i4].text;
+                  data[keys1[4]] = json[0].children[i1].children[i2].children[i3].children[i4].children[i5].text;
+                  jsonData.push(data);
+                  i5++;
+                }
+                i4++;
+              }
+              i3++;
+            }
+            i2++;
+          }
+          i1++;
+        }
+        JSONToExcelConvertor("资源目录", jsonData, keys1);
+      });
+    });
+      function importExcel(obj) {//导入
+        var wb;//读取完成数据
+        var rABS = false;//是否将文件读取为二进制字符串
+        if(!obj.files) {
+          return;
+        }
+        const IMPORTFILE_MAXSIZE = 1*2048;//这里可以自定义控制导入文件大小
+        var suffix = obj.files[0].name.split(".")[1];
+        if(suffix != 'xls' && suffix !='xlsx'){
+          alert('导入的文件格式不正确!');
+          return
+        }
+        if(obj.files[0].size/1024 > IMPORTFILE_MAXSIZE){
+          alert('导入的表格文件不能大于2M');
+          return
+        }
+        var f = obj.files[0];
+        $("#excelfile").val(f.name);
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var data = e.target.result;
+          if(rABS) {
+            wb = XLSX.read(btoa(fixdata(data)), {//手动转化
+              type: 'base64'
+            });
+          } else {
+            wb = XLSX.read(data, {
+              type: 'binary'
+            });
+          }
+          //wb.SheetNames[0]是获取Sheets中第一个Sheet的名字
+          //wb.Sheets[Sheet名]获取第一个Sheet的数据
+          aa = JSON.stringify( XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]));
+          var json =  XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+          for (var key in json[0]){
+            var property = key;
+            keys.push(key);
+            //console.log(property);
+          }
+          //数据重构
+          datastruct(json,keys);
+          //插入数据库
+          createTreeData(keys,json);
+          treeReload();
+        };
+        if(rABS) {
+          reader.readAsArrayBuffer(f);
+        } else {
+          reader.readAsBinaryString(f);
+          // reader.readAsText(f, "UTF-8")
+        }
+      }
+      function JSONToExcelConvertor(fileName, jsonData,keys) {//excel导出
+
+        //json
+        var arrData = typeof jsonData != 'object' ? JSON.parse(jsonData) : jsonData;
+
+        // #region 拼接数据
+
+        var excel = '<table>';
+
+        //设置表头
+        var row = "<tr>";
+
+        for (var name in arrData[0]) {
+          //每个单元格都可以指定样式. eg color:red   生成出来的就是 红色的字体了.
+          row += "<td style='color:red;text-align:center;'>" + name + '</td>';
+        }
+
+        //列头结束
+        excel += row + "</tr>";
+
+        //设置数据
+        for (var i = 0; i < arrData.length; i++) {
+
+          var row = "<tr>";
+          for (var k in keys) {
+
+            var value = arrData[i][keys[k]] === "." ? "" : arrData[i][keys[k]];
+
+            row += '<td style="text-align:center;">' + value + '</td>';//将值放入td
+          }
+          //将td 放入tr,将tr放入table
+          excel += row + "</tr>";
+        }
+        //table结束
+        excel += "</table>";
+
+        // #endregion
+
+
+        // #region 拼接html
+
+        var excelFile = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'>";
+        excelFile += '<meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">';
+        excelFile += '<meta http-equiv="content-type" content="application/vnd.ms-excel';
+        excelFile += '; charset=UTF-8">';
+        excelFile += "<head>";
+        excelFile += "<!--[if gte mso 9]>";
+        excelFile += "<xml>";
+        excelFile += "<x:ExcelWorkbook>";
+        excelFile += "<x:ExcelWorksheets>";
+        excelFile += "<x:ExcelWorksheet>";
+        excelFile += "<x:Name>";
+        excelFile += "{worksheet}";
+        excelFile += "</x:Name>";
+        excelFile += "<x:WorksheetOptions>";
+        excelFile += "<x:DisplayGridlines/>";
+        excelFile += "</x:WorksheetOptions>";
+        excelFile += "</x:ExcelWorksheet>";
+        excelFile += "</x:ExcelWorksheets>";
+        excelFile += "</x:ExcelWorkbook>";
+        excelFile += "</xml>";
+        excelFile += "<![endif]-->";
+        excelFile += "</head>";
+        excelFile += "<body>";
+        excelFile += excel;//将table 拼接
+        excelFile += "</body>";
+        excelFile += "</html>";
+
+        // #endregion
+
+        var uri = 'data:application/vnd.ms-excel;charset=utf-8,' + encodeURIComponent(excelFile);
+
+        //创建a标签
+        var link = document.createElement("a");
+        //指定url
+        link.href = uri;
+        //设置为隐藏
+        link.style = "visibility:hidden";
+        //指定文件名和文件后缀格式
+        link.download = fileName + ".xls";
+        //追加a标签
+        document.body.appendChild(link);
+        //触发点击事件
+        link.click();
+        //移除a标签
+        document.body.removeChild(link);
+      }
+      function datastruct(jsonData,keys){
+        //键值补全
+        for(var j=0;j<keys.length;j++){
+          $.each(jsonData,function(i,value){
+            if(jsonData[0][keys[j]]!='' && jsonData[0][keys[j]]!=null){
+              if(jsonData[i][keys[j]]==''||jsonData[i][keys[j]]==null){
+                jsonData[i][keys[j]]=jsonData[i-1][keys[j]];
+              }
+            }
+          });
+        }
+      }
+      //插入数据库
+      function createTreeData(keys,result){
+        for(var i =0; i < 5;i++){
+          for(var k in result){
+              if(k==0){
+                if(i==0){
+                  var req = {
+                    "text":result[k][keys[i]],
+                    "parent":"#",
+                  }
+                  $.ajax({
+                    url:"mysql/insertML",
+                    type:"post",
+                    data:req,
+                    async: false,
+                    success:function(res){
+                      if(res.message!="ok"){
+                        //alert("插入失败！");
+                      }
+                    }
+                  });
+                }else {
+                  //查询父节点id
+                  $.ajax({
+                    url: "mysql/selectML_id",
+                    type:"post",
+                    data: {"text": result[k][keys[i - 1]]},
+                    async:false,
+                    success: function (res) {
+                      if(res[0].id !=-1){
+                        var req = {
+                          "text": result[k][keys[i]],
+                        };
+                        req["parent"] = res[0].id;
+                        $.ajax({
+                          url: "mysql/insertML",
+                          type: "post",
+                          data: req,
+                          async: false,
+                          success: function (res1) {
+                            if (res1.message != "ok") {
+                              // alert("插入失败！");
+                            }
+                          }
+                        });
+                      }
+                    }
+                  });
+                }
+              }else{
+                if(result[k][keys[i]]!=result[k-1][keys[i]]){
+                  if(i==0){
+                    var req = {
+                      "text":result[k][keys[i]],
+                      "parent":"#",
+                    }
+                    $.ajax({
+                      url:"mysql/insertML",
+                      data:req,
+                      type:"post",
+                      async: false,
+                      success:function(res){
+                        if(res.message!="ok"){
+                         // alert("插入失败！");
+                        }
+                      }
+                    });
+                  }else {
+                    //查询父节点id
+                    $.ajax({
+                      url: "mysql/selectML_id",
+                      data: {"text": result[k][keys[i - 1]]},
+                      async: false,
+                      type:"post",
+                      success: function (res) {
+                        if (res[0].id != -1) {
+                          var req = {
+                            "text": result[k][keys[i]],
+                          };
+                          req["parent"] = res[0].id;
+                          $.ajax({
+                            url: "mysql/insertML",
+                            data: req,
+                            async: false,
+                            type: "post",
+                            success: function (res1) {
+                              if (res1.message != "ok") {
+                                // alert("插入失败！");
+                              }
+                            }
+                          });
+                        }
+                      }
+                    });
+                  }
+                }
+              }
+          }
+        }
+      }
+      function treeReload(){
+        $.ajax({
+          url:"http://localhost:3000/mysql/selectML?",
+          type:"get",
+          async:false,
+          success:function(result) {
+              json1 = result;
+              treeInit();
+          }
+        });
+      }
+      function treeInit(){
+        $('#jstree1').jstree("destroy").jstree({
+          "core":{
+            "data":{
+                "url":"http://localhost:3000/mysql/selectML",
+            },
+            "themes" : {
+              "variant" : "large",//加大
+              "ellipsis" : true //文字多时省略
+            },
+            "check_callback" : true
+          },
+          "contextmenu":{
+            select_node:false,
+            show_at_node:true,
+            items:{
+              "新建节点":{
+                "label":"新建节点",
+                "icon": "glyphicon glyphicon-plus",
+                "action":function(data){
+                  var inst = $.jstree.reference(data.reference);
+                  var obj = inst.get_node(data.reference);
+                  inst.create_node(obj, {}, "last", function (new_node) {
+                    try {
+                      new_node.text="新建节点";
+                      new_node.children=[];
+                      inst.edit(new_node,{},function(node){
+                        createnode(new_node);
+                      });
+                    } catch (ex) {
+                      setTimeout(function () { inst.edit(new_node); },0);
+                    }
+                  });
+                }
+              },
+              "修改节点":{
+                "label"				: "修改节点",
+                "icon"				:"glyphicon glyphicon-asterisk",
+                "action"			: function (data) {
+                  var inst = $.jstree.reference(data.reference);
+                  obj = inst.get_node(data.reference);
+                  inst.edit(obj, {}, function (node) {
+                    //修改节点数据
+                    updatenode(node);
+                  });
+                }
+              },
+              "删除节点":{
+                //(this.check("delete_node", data.reference, this.get_parent(data.reference), "")),
+                "label"				: "删除节点",
+                "icon"				:"glyphicon glyphicon-minus",
+                "action"			: function (data) {
+                  var inst = $.jstree.reference(data.reference);
+                  var obj = inst.get_node(data.reference);
+                  var node = [obj.id];
+                  var s = inst.delete_node(node);
+                  console.log(s);
+                  if(s){
+                    if(obj.children_d.length==0) {
+                      deletenode(obj);//删除叶子结点数据
+                    }else{
+                      //同步数据库中树数据
+                      $.ajax({
+                        url:"http://localhost:3000/mysql/selectML?",
+                        type:"get",
+                        async:false,
+                        success:function(result) {
+                          json1 = result;
+                        }
+                      });
+                      deletenode(obj);//删除结点
+                     //删除结点所有子节点
+                      for(var i in json1){
+                        if(json1[i].parent==obj.id){
+                          deletenode(json1[i]);
+                          for(var j in json1){
+                            if(json1[i].id==json1[j].parent){
+                              deletenode(json1[j]);
+                              for(var k in json1){
+                                if(json1[j].id==json1[k].parent){
+                                  deletenode(json1[k]);
+                                  for(var m in json1){
+                                    if(json1[k].id==json1[m].parent){
+                                      deletenode(json1[m]);
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+
+                }
+              }
+            }
+          },
+          "plugins" : [ "wholerow","changed","contextmenu","dnd","state"],
+        }).on('move_node.jstree',function(e,data){
+          var node = data.node;
+          updatenode(node);
+        }).on('changed.jstree',function(e,data){
+          if(data.instance.is_leaf(data.node)) {
+            if (data.event.type == "click") {
+              var selectedNode = data.instance.get_node(data.selected[0]);
+              //console.log(selectedNode.text);
+              var tableInf={
+                "database":$("#jstree1").jstree(true).get_node(selectedNode.parents[2]).text,
+                "tablename":selectedNode.text,
+                "id":selectedNode.id,
+              };
+              $.cookie('tablename',tableInf.tablename,{ expires: 7 });
+              $.cookie('database',tableInf.database,{ expires: 7 });
+              $.cookie('id',tableInf.id,{ expires: 7 });
+              load("/datainstruction");
+            }
+          }
+        }).on("loaded.jstree", function (e, data) {
+          load("/datainstruction");
+          //data.instance.clear_state();
+          $("#jstree1").jstree(true).open_all();
+        });
+      }
+      function load(src){
+        $("#dataIns").empty();
+        $("#dataIns").load(src);
+      }
+      function deletenode(obj){
+        var req={
+          "id" : obj.id
+        };
+        //删除数据库中数据
+        $.ajax({
+          type:"post",
+          url:"http://localhost:3000/mysql/deleteML?",
+          data:req,
+          success:function(data){
+            if(data.message=="ok"){
+              //treeReload();
+               // $('#jstree1').jstree(true).refresh(true,false);
+            }
+          }
+        });
+      }
+      function updatenode(obj) {
+        var req = {
+          "parent":obj.parent,
+          "text":obj.text,
+          "id" :obj.id,
+        };
+        //修改数据库中数据
+        $.ajax({
+          type: "post",
+          url: "http://localhost:3000/mysql/updateML?",
+          data:req,
+          success:function(result){
+            if(result.message=="ok"){
+              //treeReload();
+                //$('#jstree1').jstree(true).refresh(true,false);
+            }
+          }
+        });
+      }
+      function createnode(new_node){
+        var req={
+            "parent":new_node.parent,
+            "text":new_node.text,
+        };
+        //插入数据库
+        $.ajax({
+          type:"post",
+          url:"http://localhost:3000/mysql/insertML?",
+          data:req,
+          success:function(result){
+            if(result.message=="ok"){
+               // treeReload();
+               // $('#jstree1').jstree(true).refresh(true,false);
+               // var tree = $.jstree.reference("#jstree1");
+               // tree.refresh(true,false);
+                //$('#jstree1').data('jstree', false).empty();
+                //$('#jstree1').jstree(true).refresh(true,false);
+                $.ajax({
+                    url:"/mysql/selectML_id",
+                    type:"post",
+                    async:false,
+                    data:{"text":new_node.text},
+                    success:function(res){
+                       $('#jstree1').jstree(true).set_id(new_node,res[0].id);
+                    }
+                });
+            }
+          }
+        });
+      }
+      function word(){
+        treeReload();//同步数据库数据
+        //构建文档所需数据
+        var jsonData = [];
+        var i1 = 0;
+        var keys1 = ["大标题", "2级目录", "3级库名", "4级分类名", "5级表名"];
+        var obj = {
+          "id":"#",
+          "text":"资源目录",
+          "children":[],
+        };
+        var json = [];
+        for(var i in json1){
+          if(json1[i].parent=="#"){
+            var obj1={
+              "text":json1[i].text,
+              "children":[]
+            };
+            for(var k in json1){
+              if(json1[k].parent * 1==json1[i].id){
+                var obj2={
+                  "text":json1[k].text,
+                  "children":[]
+                };
+                for(var j in json1){
+                  if(json1[j].parent*1==json1[k].id){
+                    var obj3={
+                      "text":json1[j].text,
+                      "children":[]
+                    };
+                    for(var m in json1){
+                      if(json1[m].parent*1==json1[j].id){
+                        var obj4={
+                          "text":json1[m].text,
+                          "children":[]
+                        };
+                        for(var n in json1){
+                          if(json1[n].parent*1==json1[m].id){
+                            var obj5={
+                              "text":json1[n].text,
+                              "children":[]
+                            };
+                            obj4.children.push(obj5);
+                          }
+                        }
+                        obj3.children.push(obj4);
+                      }
+                    }
+                    obj2.children.push(obj3);
+                  }
+                }
+                obj1.children.push(obj2);
+              }
+            }
+            obj.children.push(obj1);
+          }
+        }
+        json.push(obj);
+        while (i1 < json[0].children.length) {
+          var i2 = 0;
+          while (i2 < json[0].children[i1].children.length) {
+            var i3 = 0;
+            while (i3 < json[0].children[i1].children[i2].children.length) {
+              var i4 = 0;
+              while (i4 < json[0].children[i1].children[i2].children[i3].children.length) {
+                var i5 = 0;
+                while (i5 < json[0].children[i1].children[i2].children[i3].children[i4].children.length) {
+                  var data = {};
+                  var bianhao=[];
+                  data[keys1[0]] = json[0].children[i1].text;
+                  data[keys1[1]] = json[0].children[i1].children[i2].text;
+                  data[keys1[2]] = json[0].children[i1].children[i2].children[i3].text;
+                  data[keys1[3]] = json[0].children[i1].children[i2].children[i3].children[i4].text;
+                  data[keys1[4]] = json[0].children[i1].children[i2].children[i3].children[i4].children[i5].text;
+                  bianhao.push(i1+1);
+                  bianhao.push(i2+1);
+                  bianhao.push(i3+1);
+                  bianhao.push(i4+1);
+                  bianhao.push(i5+1);
+                  data["bianhao"]=bianhao;
+                  jsonData.push(data);
+                  i5++;
+                }
+                i4++;
+              }
+              i3++;
+            }
+            i2++;
+          }
+          i1++;
+        }
+        localStorage.setItem("data", JSON.stringify(jsonData));
+        //window.location.href = "/word?data=" + escape(JSON.stringify(data));
+        window.open("/word?data=" + escape(JSON.stringify(data)));
+      }
+  </script>
+</head>
+<body>
+  <div style="width:100%;height:100%;padding-left:15%" id = "body">
+    <div id = "sourceTree" class="col-sm-4 row pre-scrollable" style="border: 1px solid #ccc;border-radius: 4px;min-height:930px;margin:10px ">
+      <p>资源目录</p>
+      <div class="panel panel-default">
+        <div class="panel-body">
+          <div class="nav-bar">
+            <div class="btn-toolba navbar-btn col-sm-8" role="toolbar">
+              <div class="input-group" onclick="$('#FileInput')[0].click()">
+                        <span class="input-group-btn">
+                            <button class="btn btn-info" type="button" >选择文件</button>
+                          </span>
+                <input type="text" class="form-control" placeholder="请选择文件" readonly="readonly" id="excelfile">
+              </div>
+            </div>
+            <a class="btn btn-link navbar-btn col-sm-2" id="excel">资源目录</a>
+            <a class="btn btn-link navbar-btn col-sm-2" id="word" onclick="word()">数据说明书</a>
+            <a class="btn btn-link navbar-btn col-sm-2" onclick="treeReload()">刷新</a>
+            <input type="file" id="FileInput" hidden="hidden" style="display: none;" onchange="importExcel(this)" />
+          </div>
+        </div>
+      </div>
+      <div id="jstree1"></div>
+    </div>
+    <div id = "dataIns" class="col-sm-6 row pre-scrollable" style="border: 1px solid #ccc;border-radius: 4px;min-height:930px;margin:10px "></div>
+  </div>
+</body>
+</html>

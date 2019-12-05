@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>数据说明模块</title>
+    <!--<link rel='stylesheet' href='/stylesheets/bootstrap.min.css' />
+    <link rel='stylesheet' href='/stylesheets/bootstrap-table.min.css'/>
+    <script src='/javascripts/jquery-3.3.1.min.js'></script>
+    <script src="/javascripts/jquery.cookie.js"></script>
+    <script src='/javascripts/bootstrap.min.js'></script>
+    <script src='/javascripts/bootstrap-table.min.js'></script>
+    <script src="/javascripts/bootstrap-table-zh-CN.min.js"></script>
+    <script src="/javascripts/xlsx.full.min.js"></script>
+    <script type="text/javascript" src="/javascripts/ueditor/ueditor.config.js"></script>
+    <script type="text/javascript" src="/javascripts/ueditor/ueditor.all.min.js"></script>
+    <script src="/javascripts/ueditor/lang/zh-cn/zh-cn.js"></script>-->
+    <script>
+        var flag="false";//表说明是否存在的状态变量，默认为false不存在
+        String.prototype.replaceAll  = function(s1,s2){
+            return this.replace(new RegExp(s1,"gm"),s2);
+        };
+        var tableid = "";//数据说明唯一标识
+        $(document).ready(function(){
+            UE.delEditor('container');
+            var ue = UE.getEditor('container');//全版百度富文本编辑器
+            ue.ready(function() {
+                //设置编辑器的内容
+                // ue.setContent('hello');
+                $.post("/mysql/selectSM",{"tableName":tableName,"database":database},function (res) {
+                    if(res.length!=0){
+                        var result=res[0];
+                        flag="true";//修改状态变量
+                        tableid = res[0].id;
+                        if(result.html!=null){
+                            ue.setContent(result.html);
+                        }
+                    }
+                });
+                $("#edit2 #submit").off('click').click(function(){
+                    //获取html内容，返回: <p>hello</p>
+                    var html = ue.getContent();
+                    //获取纯文本内容，返回: hello
+                    //var txt = ue.getContentTxt();
+                    var req = {
+                        "id":$.cookie('id'),
+                        "database":$.cookie("database"),
+                        "tableName":$.cookie("tablename"),
+                        "html":html
+                    };
+                    if(flag=="false"){
+                        //插入数据库
+                        $.post("/mysql/insertSM2",req,function(result){
+                            if(result.message=="ok"){
+                                alert("插入成功！");
+                                flag="true";
+                            }
+                        });
+                    }else{
+                        //修改数据库
+                        $.post("/mysql/updateSM2",req,function(result){
+                            if(result.message=="ok"){
+                                alert("修改成功！");
+                            }
+                        });
+                    }
+                });
+            });
+            var tableName=$.cookie("tablename");
+            var database=$.cookie("database");
+            //查询表的说明是否存在
+            $.post("/mysql/selectSM",{"tableName":tableName,"database":database},function (result) {
+                if(result.length!=0){
+                    tableid = result[0].id;
+                    var result=result[0];
+                    flag="true";//修改状态变量
+                    $("#tableFlag").val(result.tableflag);
+                    $("#database").val(result.database);
+                    $("#tableName").val(result.tablename);
+                    $("form #tableInf").val(result.tableinf);
+                    $("#ZDinf").val(result.zdinf);
+                    //加载表字段信息
+                    $.post('/mysql/selectZD',{"tableid":tableid},function (res) {
+                        if(res.length!=0){
+                            $("#tableZD").bootstrapTable("load",res);
+                        }
+                    });
+                }
+            });
+            $("#tableName").val($.cookie("tablename"));
+            $("#database").val($.cookie("database"));
+            $('#tableZD').bootstrapTable({
+                toolbar:"#tool",
+                searchable:true,
+                striped:true,
+                showRefresh:true,
+                clickToSelect:true,
+                checkboxHeader:false,
+                columns:[
+                    {
+                        checkbox:true,
+                        checkboxEnabled:true,
+                        clickToSelect:true,
+                    },{
+                        field:'序号',
+                        title:'序号',
+                        align:'center',
+                        formatter:function(value, row, index){
+                            row["序号"] = index+1;
+                            return index+1;
+                        }
+                    }, {
+                        field:'字段名称',
+                        title:'字段名称',
+                        align:'center',
+                    },{
+                        field:'字段标识',
+                        title:'字段标识',
+                        align:'center',
+                    }, {
+                        field:'类型及长度',
+                        title:'类型及长度',
+                        align:'center',
+                    },{
+                        field:'是否允许空值',
+                        align:'center',
+                        title:'是否允许空值',
+                    },{
+                        field:'计量单位',
+                        align:'center',
+                        title:'计量单位'
+                    },{
+                        field:'主键',
+                        align:'center',
+                        title:'主键'
+                    },{
+                        field:'外键',
+                        align:'center',
+                        title:'外键'
+                    },{
+                        field:'主键序号',
+                        align:'center',
+                        title:'主键序号'
+                }]
+            });
+            $('#myModal').on('hidden.bs.modal', function () {
+                $('#myModal input').val('');
+            });
+        });
+        function addData() {
+            $('#myModal').modal("show");
+            $("#exits").off("click").click(function(){
+                var count = $('#tableZD').bootstrapTable('getData').length;
+                var zd={
+                    "字段名称":$("#ZDname").val(),
+                    "字段标识":$("#ZDflag").val(),
+                    "类型及长度":$("#type").val(),
+                    "是否允许空值":$("#isNull").val(),
+                    "计量单位":$("#DW").val(),
+                    "主键":$("#Zkey").val(),
+                    "外键":$("#Wkey").val(),
+                    "主键序号":$("#ZkeyXH").val()
+                };
+                $("#tableZD").bootstrapTable('insertRow',{index:count,row:zd});
+            });
+        }
+        function updateData() {
+            var opts = $('#tableZD').bootstrapTable('getSelections')[0];
+            $("#ZDname").val(opts.字段名称);
+            $("#ZDflag").val(opts.字段标识);
+            $("#type").val(opts.类型及长度);
+            $("#isNull").val(opts.是否允许空值);
+            $("#DW").val(opts.计量单位);
+            $("#Zkey").val(opts.主键);
+            $("#Wkey").val(opts.外键);
+            $("#ZkeyXH").val(opts.主键序号);
+            $('#myModal').modal("show");
+            $("#exits").off("click").click(function(){
+                var zd={
+                    "字段名称":$("#ZDname").val(),
+                    "字段标识":$("#ZDflag").val(),
+                    "类型及长度":$("#type").val(),
+                    "是否允许空值":$("#isNull").val(),
+                    "计量单位":$("#DW").val(),
+                    "主键":$("#Zkey").val(),
+                    "外键":$("#Wkey").val(),
+                    "主键序号":$("#ZkeyXH").val()
+                };
+                $("#tableZD").bootstrapTable('updateRow',{index:opts.序号-1,row:zd});
+            });
+        }
+        function Delete(){
+            var opts =$.map( $('#tableZD').bootstrapTable('getSelections'),function(row){
+                return row.序号;
+            });
+            $("#tableZD").bootstrapTable('remove',{field:'序号',values:opts});
+        }
+        function submit(){
+            //从tableZD中获取数据
+            var Data = [];
+            var key=["checkbox","序号","字段名称","字段标识","类型及长度","是否允许空值","计量单位","主键","外键","主键序号"]
+            var tb=document.getElementById("tableZD");    //获取table对像
+            var rows = tb.rows;
+            for (var i = 1; i < rows.length; i++) {    //--循环所有的行
+                var zd={};
+                var cells = rows[i].cells;　　// cells 集合返回表格中所有 <td> 或 <th> 元素。
+                for (var j = 1; j < cells.length; j++) {   //--循环所有的列，从第一列取数据
+                   zd[key[j]]=cells[j].innerText;
+                }
+                Data.push(zd);
+            }
+            //获取tableid
+            if(tableid==""){
+                tableid = $.cookie('id');
+            }
+            var myobj ={
+                "id":tableid,
+                "database":$("#database").val(),
+                "tableName":$("#tableName").val(),
+                "TableFlag":$("#tableFlag").val(),
+                "tableInf":$("form #tableInf").val(),
+                "ZDinf":$("#ZDinf").val(),
+                "tableZD":Data
+            };
+            //删除原始数据
+            $.post('/mysql/deleteZD',{"tableid":tableid},function (result) {
+                if(result.message=="ok"){
+                    //alert("删除成功！");
+                }
+            });
+            //插入字段信息
+            for(var i in Data){
+                Data[i]["tableid"] = tableid;
+                $.post('/mysql/insertSM_zd',Data[i],function(result){
+                    if(result.message=="ok"){
+                        //alert("插入成功！");
+                    }
+                });
+            }
+            if(flag=="false"){
+                //插入数据说明
+                $.post("/mysql/insertSM1",myobj,function(result){
+                    if(result.message=="ok"){
+                        alert("插入成功！");
+                        flag="true";
+                    }
+                });
+            }else{
+                //修改数据说明
+                $.post("/mysql/updateSM1",myobj,function(result){
+                    if(result.message=="ok"){
+                        alert("修改成功！");
+                    }
+                });
+            }
+        }
+        function importExcel1(obj) {//导入
+            var wb;//读取完成数据
+            var rABS = false;//是否将文件读取为二进制字符串
+            if(!obj.files) {
+                return;
+            }
+            const IMPORTFILE_MAXSIZE = 1*2048;//这里可以自定义控制导入文件大小
+            var suffix = obj.files[0].name.split(".")[1];
+            if(suffix != 'xls' && suffix !='xlsx'){
+                alert('导入的文件格式不正确!');
+                return
+            }
+            if(obj.files[0].size/1024 > IMPORTFILE_MAXSIZE){
+                alert('导入的表格文件不能大于2M');
+                return
+            }
+            var f = obj.files[0];
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var data = e.target.result;
+                if(rABS) {
+                    wb = XLSX.read(btoa(fixdata(data)), {//手动转化
+                        type: 'base64'
+                    });
+                } else {
+                    wb = XLSX.read(data, {
+                        type: 'binary'
+                    });
+                }
+                //wb.SheetNames[0]是获取Sheets中第一个Sheet的名字
+                //wb.Sheets[Sheet名]获取第一个Sheet的数据
+                var json =  XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                $("#tableZD").bootstrapTable("load",json);
+            };
+            if(rABS) {
+                reader.readAsArrayBuffer(f);
+            } else {
+                reader.readAsBinaryString(f);
+                // reader.readAsText(f, "UTF-8")
+            }
+        }
+        function toggle(){
+            $("#edit1").toggle();
+            $("#edit2").toggle();
+        }
+    </script>
+</head>
+<body>
+    <a onclick="toggle()" class="btn btn-default btn-sm" style="position:absolute;right:10px;margin: 10px">
+        <span class="glyphicon glyphicon-repeat"></span> 切换
+    </a><br>
+<div id="edit1">
+<form role="form">
+    <div class="form-group">
+        <label for="name">库名</label>
+        <input type="text" class="form-control" id="database" placeholder="请输入数据库名称">
+    </div>
+    <div class="form-group">
+        <label for="name">表名</label>
+        <input type="text" class="form-control" id="tableName" placeholder="请输入表名称">
+    </div>
+    <div class="form-group">
+        <label for="name">英文表名</label>
+        <input type="text" class="form-control" id="tableFlag" placeholder="请输入表名称">
+    </div>
+    <div class="from-group">
+        <label for="name">表格介绍</label>
+        <textarea id="tableInf" wrap="soft" style="width:100%;border:1px solid #ccc;border-radius: 4px;padding:6px 12px;font-size:14px;min-height: 150px">
+        </textarea>
+    </div>
+     <div  class="from-group">
+        <div class="col-sm-12" id="tool">
+            <input class="btn btn-default col-sm-2" type="button" value="添加"  onclick="addData()">
+            <input class="btn btn-default col-sm-2" type="button" value="修改"  onclick="updateData()">
+            <input class="btn btn-default col-sm-2" type="button" value="删除" onclick="Delete()">
+            <input class="btn btn-default col-sm-6" type="file" value="excel导入" onchange="importExcel1(this)">
+        </div>
+         <label for="name">数据库表字段</label>
+         <table id="tableZD"></table>
+    </div>
+    <div class="from-group">
+        <label for="name">字段说明</label>
+        <textarea id="ZDinf" wrap="physical" style="width:100%;border:1px solid #ccc;border-radius: 4px;padding:6px 12px;font-size:14px;min-height: 300px">
+        </textarea><br>
+    </div>
+</form>
+<button class="btn btn-primary"  onclick="submit()">提交</button>
+</div>
+<div id="edit2" style ="display: none">
+    <a class="btn btn-primary" id="submit">submit</a>
+    <!-- 加载编辑器的容器 -->
+    <script id="container"  type="text/plain" style="min-height:900px"></script>
+</div>
+<!-- 添加删除模态框-->
+<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h4 class="modal-title" id="myModalLabel">模态框（Modal）</h4>
+            </div>
+            <div class="modal-body">
+                <form role="form">
+                    <div class="form-group">
+                        <label for="name">字段名称</label>
+                        <input type="text" class="form-control" id="ZDname" placeholder="请输入字段名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="name">字段标识</label>
+                        <input type="text" class="form-control" id="ZDflag" placeholder="请输入字段标识">
+                    </div>
+                    <div class="form-group">
+                        <label for="name">类型及长度</label>
+                        <input type="text" class="form-control" id="type" placeholder="请输入类型及长度">
+                    </div>
+                    <div class="form-group">
+                        <label for="name">是否允许空值</label>
+                        <input type="text" class="form-control" id="isNull" placeholder="">
+                    </div>
+                    <div class="form-group">
+                        <label for="name">计量单位</label>
+                        <input type="text" class="form-control" id="DW" placeholder="请输入计量单位">
+                    </div>
+                    <div class="form-group">
+                        <label for="name">主键</label>
+                        <input type="text" class="form-control" id="Zkey" placeholder="请输入字段名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="name">外键</label>
+                        <input type="text" class="form-control" id="Wkey" placeholder="">
+                    </div>
+                    <div class="form-group">
+                        <label for="name">主键序号</label>
+                        <input type="text" class="form-control" id="ZkeyXH" placeholder="">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal" id="exits">添加</button>
+            </div>
+        </div><!-- /.modal-content -->
+    </div><!-- /.modal -->
+
+</div>
+</body>
+</html>

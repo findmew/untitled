@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>数据库说明书在线查看</title>
+    <link rel="stylesheet" href="/stylesheets/bootstrap.min.css">
+    <script src="/javascripts/jquery-3.3.1.min.js"></script>
+    <script src="/javascripts/FileSaver.js"></script>
+    <script src="/javascripts/jquery.wordexport.js"></script>
+    <script src="/javascripts/bootstrap.min.js"></script>
+    <style>
+        /*table{
+            border:1px solid #000 !important;
+            text-align: center !important;
+            width:100% !important;
+        }*/
+    </style>
+    <script>
+        var request={
+            getUrlParam:function(name){
+                var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)"); //构造一个含有目标参数的正则表达式对象
+                var r = window.location.search.substr(1).match(reg); //匹配目标参数
+                if (r != null) return unescape(r[2]);
+                return null; //返回参数值
+            },
+        };
+        String.prototype.replaceAll  = function(s1,s2){
+            return this.replace(new RegExp(s1,"gm"),s2);
+        };
+        var keys = ["大标题", "2级目录", "3级库名", "4级分类名", "5级表名"];
+        var keys1 = ["序号","字段名称","字段标识","类型及长度","是否允许空值","计量单位","主键","外键","主键序号"];
+        $(document).ready(function(){
+            //var a = request.getUrlParam("data")
+            //var data = JSON.parse(unescape(a));//只能获取单独得json object
+            var jsonData = JSON.parse(localStorage.getItem("data"));//获取json数组
+            for(var i=0;i<jsonData.length;i++){
+                var req = {
+                    "tableName":jsonData[i][keys[4]],
+                    "database":jsonData[i][keys[1]]
+                };
+                $.ajax({
+                    url:"/mysql/selectSM",
+                    type:"post",
+                    async:false,
+                    data:req,
+                    success:function(result){
+                        //将数据放入html标签中
+                        if(result.length!=0) {
+                            insertHtml(i, jsonData, keys, result);
+                        }
+                        //内部样式设置
+                        $('table').removeAttr('style');
+                        //border:1px solid #000;text-align: center;width:100%
+                        $('table').attr('style','border:1px solid #000;text-align: center;width:100%');
+                        $('p').attr('style','');
+                        $('p').attr('style',"font-family:'等线';font-size:12pt;line-height:30px");
+                        $('h div').attr('style',"margin:10px;font-size:15pt;font-family:'黑体'");
+                    }
+                });
+            }
+            $("#download").off('click').click(function(){
+                $("#body").wordExport('word文档');
+            });
+        });
+        function insertHtml(i,json,keys,result){
+            cn = {//阿拉伯数字转中文
+                '0': '零',
+                '1': '一',
+                '2': '二',
+                '3': '三',
+                '4': '四',
+                '5': '五',
+                '6': '六',
+                '7': '七',
+                '8': '八',
+                '9': '九',
+            };
+            var cs={//样式匹配
+                '0':'dbt',
+                '1':'ml',
+                '2':'km',
+                '4':'fl',
+                '5':'bm',
+                '6':'tinf',
+                '7':'table',
+                '8':'zd',
+            };
+            if(i==0){
+                //插入标题
+                for(var j=0;j<keys.length;j++) {
+                    var bianhao="";
+                    for(var k=1;k<=j;k++){
+                        bianhao = bianhao + json[i].bianhao[k]+".";
+                    }
+                    if(j==0){
+                        $("#body").append("<h style='text-align: center'><div>"+cn[json[i].bianhao[0]]+"."+json[i][keys[j]]+"</div></h"+(j+2)+">");
+                    }else{
+                        $("#body").append("<h style='position:relative;left:"+j*30+"px'><div>"+bianhao+json[i][keys[j]]+"</div></h"+(j+2)+">");
+                    }
+                }
+                //插入表格介绍
+                if(result[0].html==null) {
+                    $("#body").append("<p>" + result[0].tableinf.replaceAll("\r\n", "</br>").replaceAll("\n", "</br>") + "</p>");
+                    //插入字段表格
+                    var ZDtable = "<tr style='background-color:#c5c5c5'>" +
+                        "<th style='border:1px solid #000;text-align: center'><p>序号</p></th>" +
+                        "<th style='border:1px solid #000;text-align: center'><p>字段名称</p></th>" +
+                        "<th style='border:1px solid #000;text-align: center'><p>字段标识</p></th>" +
+                        "<th style='border:1px solid #000;text-align: center'><p>类型及长度</p></th>" +
+                        "<th style='border:1px solid #000;text-align: center'><p>是否允许空值</p></th>" +
+                        "<th style='border:1px solid #000;text-align: center'><p>计量单位</p></th>" +
+                        "<th style='border:1px solid #000;text-align: center'><p>主键</p></th>" +
+                        "<th style='border:1px solid #000;text-align: center'><p>外键</p></th>" +
+                        "<th style='border:1px solid #000;text-align: center'><p>主键序号</p></th>" +
+                        "</tr>";
+                    //获取字段信息
+                    $.ajax({
+                        url:'/mysql/selectZD',
+                        data: {"tableid": result[0].id},
+                        async:false,
+                        type:"post",
+                        success:function (res) {
+                            if(res.length!=0){
+                                result[0]["tableZD"]= res;
+                            }
+                        }
+                     });
+                    for (var k = 0; k < result[0].tableZD.length; k++) {
+                        var tr = "<tr>";
+                        for (var m = 0; m < keys1.length; m++) {
+                            tr = tr + "<td style='border:1px solid #000;text-align: center'><p>" + result[0].tableZD[k][keys1[m]] + "</p></td>";
+                        }
+                        tr = tr + "</tr>";
+                        ZDtable += tr;
+                    }
+                    $("#body").append("<table>" + ZDtable + "</table>");
+                    //插入字段说明
+                    var ZDins = "<P>e）各字段说明如下:</P>";
+                    ZDins += "<p>" + result[0].zdinf.replaceAll("\r\n", "</br>").replaceAll("\n", "</br>") + "</p>";
+                    $("#body").append(ZDins);
+                }else{
+                    $("#body").append(result[0].html.replaceAll("&nbsp;",""));
+                }
+            }else{
+                    //插入标题\表名
+                    for (var j = 0; j < keys.length; j++) {
+                        var bianhao="";
+                        for(var k=1;k<=j;k++){
+                            bianhao = bianhao + json[i].bianhao[k]+".";
+                        }
+                        if (json[i][keys[j]] != json[i - 1][keys[j]]) {
+                            if (j == 0) {
+                                $("#body").append("<h style='position:relative;left:400px'><div>" + cn[json[i].bianhao[0]]+"."+ json[i][keys[j]] + "</div></h" + (j + 2) + ">");
+                            } else {
+                                $("#body").append("<h style='position:relative;left:" + j * 30 + "px'><div>" +bianhao+ json[i][keys[j]] + "</div></h" + (j + 2) + ">");
+                            }
+                        }
+                    }
+                    if(result[0].html==null) {
+                        //插入表格介绍
+                        $("#body").append("<p>" + result[0].tableinf.replaceAll("\r\n", "</br>").replaceAll("\n", "</br>") + "</p>");
+                        //插入字段表格
+                        var ZDtable = "<tr style='background-color:#c5c5c5'>" +
+                            "<th style='border:1px solid #000;text-align: center'><p>序号</p></th>" +
+                            "<th style='border:1px solid #000;text-align: center'><p>字段名称</p></th>" +
+                            "<th style='border:1px solid #000;text-align: center'><p>字段标识</p></th>" +
+                            "<th style='border:1px solid #000;text-align: center'><p>类型及长度</p></th>" +
+                            "<th style='border:1px solid #000;text-align: center'><p>是否允许空值</p></th>" +
+                            "<th style='border:1px solid #000;text-align: center'><p>计量单位</p></th>" +
+                            "<th style='border:1px solid #000;text-align: center'><p>主键</p></th>" +
+                            "<th style='border:1px solid #000;text-align: center'><p>外键</p></th>" +
+                            "<th style='border:1px solid #000;text-align: center'><p>主键序号</p></th>" +
+                            "</tr>";
+                        //获取字段信息
+                        $.ajax({
+                            url:'/mysql/selectZD',
+                            data: {"tableid": result[0].id},
+                            async:false,
+                            type:"post",
+                            success:function (res) {
+                                if(res.length!=0){
+                                    result[0]["tableZD"]= res;
+                                }
+                            }
+                        });
+                        for (var k = 0; k < result[0].tableZD.length; k++) {
+                            var tr = "<tr>";
+                            for (var m = 0; m < keys1.length; m++) {
+                                tr = tr + "<td style='border:1px solid #000;text-align: center'><p>" + result[0].tableZD[k][keys1[m]] + "</p></td>";
+                            }
+                            tr = tr + "</tr>";
+                            ZDtable += tr;
+                        }
+                        $("#body").append("<table>" + ZDtable + "</table>");
+                        //插入字段说明
+                        var ZDins = "<P>e）各字段说明如下:</P>";
+                        ZDins += "<p>" + result[0].zdinf.replaceAll("\r\n", "</br>").replaceAll("\n", "</br>") + "</p>";
+                        $("#body").append(ZDins);
+                    }else{
+                        $("#body").append(result[0].html.replaceAll("&nbsp;",""));
+                    }
+            }
+        }
+    </script>
+</head>
+<body style="background-color: #e0e0e0">
+<div id="tool" style="position:fixed;top:100px;left:225px;z-index:100"><a class="btn btn-primary" id="download">DownLoad</a></div>
+<div id="body" style="position:absolute;top:10px;left:325px;width:1200px;min-height:1000px;border:1px solid #ccc;z-index: 100;background-color: #f9f9f9;padding: 30px"></div>
+</body>
+</html>
