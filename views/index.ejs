@@ -479,7 +479,7 @@
           var node = $("#jstree1").jstree(true).get_node(e.target.id.split('_')[0]);
           if(node.children_d.length==0) {
             var tableInf={
-              "database":$("#jstree1").jstree(true).get_node(node.parents[2]).text,
+              "database":$("#jstree1").jstree(true).get_node(node.parents[1]).text,
               "tablename":node.text,
               "id":node.id,
             };
