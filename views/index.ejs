@@ -475,21 +475,18 @@
         }).on('move_node.jstree',function(e,data){
           var node = data.node;
           updatenode(node);
-        }).on('changed.jstree',function(e,data){
-          if(data.instance.is_leaf(data.node)) {
-            if (data.event.type == "click") {
-              var selectedNode = data.instance.get_node(data.selected[0]);
-              //console.log(selectedNode.text);
-              var tableInf={
-                "database":$("#jstree1").jstree(true).get_node(selectedNode.parents[2]).text,
-                "tablename":selectedNode.text,
-                "id":selectedNode.id,
-              };
-              $.cookie('tablename',tableInf.tablename,{ expires: 7 });
-              $.cookie('database',tableInf.database,{ expires: 7 });
-              $.cookie('id',tableInf.id,{ expires: 7 });
-              load("/datainstruction");
-            }
+        }).on('click.jstree',function(e){
+          var node = $("#jstree1").jstree(true).get_node(e.target.id.split('_')[0]);
+          if(node.children_d.length==0) {
+            var tableInf={
+              "database":$("#jstree1").jstree(true).get_node(node.parents[2]).text,
+              "tablename":node.text,
+              "id":node.id,
+            };
+            $.cookie('tablename',tableInf.tablename,{ expires: 7 });
+            $.cookie('database',tableInf.database,{ expires: 7 });
+            $.cookie('id',parseInt(tableInf.id),{ expires: 7 });
+            load("/datainstruction");
           }
         }).on("loaded.jstree", function (e, data) {
           load("/datainstruction");
