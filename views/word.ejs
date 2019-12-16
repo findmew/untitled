@@ -36,7 +36,7 @@
             for(var i=0;i<jsonData.length;i++){
                 var req = {
                     "tableName":jsonData[i][keys[4]],
-                    "database":jsonData[i][keys[1]]
+                    "database":jsonData[i][keys[2]]
                 };
                 $.ajax({
                     url:"/mysql/selectSM",
